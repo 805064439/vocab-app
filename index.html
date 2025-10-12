@@ -1,49 +1,160 @@
-<!DOCTYPE HTML>
-<!--
-	Aerial by HTML5 UP
-	html5up.net | @ajlkn
-	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
--->
-<html>
-	<head>
-		<title>gzkarger</title>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-		<link rel="stylesheet" href="assets/css/main.css" />
-		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
-	</head>
-	<body class="is-preload">
-		<div id="wrapper">
-			<div id="bg"></div>
-			<div id="overlay"></div>
-			<div id="main">
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JLPT N1 词汇挑战</title>
+    <!-- 加载 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 使用 Inter 字体以获得现代感 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb; /* 浅灰色背景 */
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'accent-blue': '#3b82f6',
+                        'accent-dark': '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen p-4 sm:p-8">
 
-				<!-- Header -->
-					<header id="header">
-						<h1>gzkarger</h1>
-						<p>Security Chief &nbsp;&bull;&nbsp; Cyborg &nbsp;&bull;&nbsp; Never asked for this</p>
-						<nav>
-							<ul>
-								<li><a href="#" class="icon brands fa-twitter"><span class="label">Twitter</span></a></li>
-								<li><a href="#" class="icon brands fa-facebook-f"><span class="label">Facebook</span></a></li>
-								<li><a href="#" class="icon brands fa-dribbble"><span class="label">Dribbble</span></a></li>
-								<li><a href="#" class="icon brands fa-github"><span class="label">Github</span></a></li>
-								<li><a href="#" class="icon solid fa-envelope"><span class="label">Email</span></a></li>
-							</ul>
-						</nav>
-					</header>
+    <div id="app" class="max-w-4xl mx-auto">
+        <!-- 头部区域 -->
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-accent-dark mb-2">
+                JLPT N1 词汇挑战
+            </h1>
+            <p class="text-lg text-gray-500">
+                每次点击获取 10 个 N1 级别核心词汇。
+            </p>
+        </header>
 
-				<!-- Footer -->
-					<footer id="footer">
-						<span class="copyright">&copy; Untitled. Design: <a href="http://html5up.net">HTML5 UP</a>.</span>
-					</footer>
+        <!-- 按钮和状态区域 -->
+        <div class="flex flex-col items-center mb-8 space-y-4">
+            <button id="fetchButton"
+                    class="px-8 py-3 bg-accent-blue text-white font-semibold rounded-xl shadow-lg hover:bg-blue-600 transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-accent-blue/50 disabled:bg-gray-400">
+                ✨ 获取新词汇
+            </button>
+            <div id="statusMessage" class="text-sm text-gray-600"></div>
+        </div>
 
-			</div>
-		</div>
-		<script>
-			window.onload = function() { document.body.classList.remove('is-preload'); }
-			window.ontouchmove = function() { return false; }
-			window.onorientationchange = function() { document.body.scrollTop = 0; }
-		</script>
-	</body>
+        <!-- 词汇卡片容器 -->
+        <div id="vocabularyContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 词汇卡片将在这里动态加载 -->
+            <div class="md:col-span-2 text-center text-gray-400 p-12 bg-white rounded-xl shadow-inner">
+                点击 "获取新词汇" 按钮来开始学习吧！
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript 逻辑 -->
+    <script>
+        // ⚠️ 必填：请将此处的 URL 替换为您真实的 Vercel 域名！
+        const API_URL = "https://vocab-api-server-on-vercel.vercel.app/api/n1-vocab";
+
+        const fetchButton = document.getElementById('fetchButton');
+        const statusMessage = document.getElementById('statusMessage');
+        const vocabularyContainer = document.getElementById('vocabularyContainer');
+
+        /**
+         * 显示状态信息并启用/禁用按钮
+         * @param {string} message - 要显示的消息
+         * @param {boolean} isLoading - 是否正在加载
+         */
+        function setStatus(message, isLoading) {
+            statusMessage.textContent = message;
+            fetchButton.disabled = isLoading;
+            fetchButton.textContent = isLoading ? '🚀 正在生成中...' : '✨ 获取新词汇';
+        }
+
+        /**
+         * 创建单个词汇卡片
+         * @param {object} vocab - 包含词汇信息的对象
+         * @returns {string} HTML 字符串
+         */
+        function createCard(vocab) {
+            return `
+                <div class="bg-white p-6 rounded-xl shadow-xl hover:shadow-2xl transition duration-300 border border-gray-100">
+                    <!-- 词汇主体 -->
+                    <div class="flex justify-between items-start mb-3 border-b pb-2 border-dashed">
+                        <h3 class="text-3xl font-bold text-accent-dark tracking-wide">${vocab.word}</h3>
+                        <span class="text-lg text-gray-500 font-medium ml-4">${vocab.reading}</span>
+                    </div>
+
+                    <!-- 中文翻译 -->
+                    <p class="text-lg text-gray-700 font-semibold mb-4">
+                        <span class="text-accent-blue mr-2">译:</span> ${vocab.chinese_translation}
+                    </p>
+
+                    <!-- 例句 -->
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <p class="text-base italic text-gray-800 mb-2">
+                            ${vocab.example_sentence_jp}
+                        </p>
+                        <p class="text-sm text-gray-500">
+                            ${vocab.example_sentence_cn}
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * 从 Vercel API 获取词汇数据并渲染
+         */
+        async function fetchVocabulary() {
+            setStatus('', true);
+            vocabularyContainer.innerHTML = ''; 
+
+            try {
+                setStatus('正在请求 Gemini API...', true);
+                
+                const response = await fetch(API_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP 错误！状态码: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.n1_vocabulary_list || data.n1_vocabulary_list.length === 0) {
+                     vocabularyContainer.innerHTML = `<div class="md:col-span-2 text-center text-red-500 p-12 bg-white rounded-xl shadow-inner">API 返回的数据格式有误或列表为空。</div>`;
+                     setStatus('获取失败', false);
+                     return;
+                }
+
+                setStatus(`成功获取 ${data.n1_vocabulary_list.length} 个词汇。`, false);
+                
+                // 渲染卡片
+                let cardsHtml = data.n1_vocabulary_list.map(createCard).join('');
+                vocabularyContainer.innerHTML = cardsHtml;
+
+            } catch (error) {
+                console.error("Fetch Error:", error);
+                setStatus('获取词汇失败，请检查 API 密钥和 CORS 设置。', false);
+                vocabularyContainer.innerHTML = `<div class="md:col-span-2 text-center text-red-500 p-12 bg-white rounded-xl shadow-inner">
+                    错误: 无法连接或获取数据。请确认 Vercel 域名是否正确，并检查浏览器控制台了解详情。
+                </div>`;
+            }
+        }
+
+        // 绑定事件监听器
+        fetchButton.addEventListener('click', fetchVocabulary);
+        
+        // 页面加载完成后，显示提示信息
+        window.onload = () => {
+             setStatus('点击按钮开始。', false);
+        };
+    </script>
+</body>
 </html>
