@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JLPT N1 词汇挑战</title>
+    <title>JLPT 词汇挑战</title>
     <!-- 加载 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -33,21 +33,47 @@
         <!-- 头部区域 -->
         <header class="text-center mb-10">
             <h1 class="text-4xl font-extrabold text-accent-dark mb-2">
-                JLPT N1 词汇挑战
+                JLPT 词汇挑战
             </h1>
             <p class="text-lg text-gray-500">
-                每次点击获取 10 个 N1 级别核心词汇。
+                每次点击获取 10 个核心词汇，支持 N5 至 N1 范围选择。
             </p>
         </header>
 
-        <!-- 按钮和状态区域 -->
-        <div class="flex flex-col items-center mb-8 space-y-4">
+        <!-- 等级选择、按钮和状态区域 -->
+        <div class="flex flex-col sm:flex-row items-center justify-center mb-8 space-y-4 sm:space-y-0 sm:space-x-6">
+            
+            <!-- 等级选择下拉菜单组 -->
+            <div class="flex items-center space-x-2 bg-white p-3 rounded-xl shadow-md border border-gray-200 flex-wrap justify-center">
+                
+                <!-- 起始等级 -->
+                <label for="startLevelSelector" class="font-medium text-gray-700">起始等级 (较简单):</label>
+                <select id="startLevelSelector" class="p-2 border border-gray-300 rounded-lg focus:ring-accent-blue focus:border-accent-blue transition duration-150">
+                    <option value="N5">N5 - 初级</option>
+                    <option value="N4">N4 - 初中级</option>
+                    <option value="N3" selected>N3 - 中级</option>
+                    <option value="N2">N2 - 中高级</option>
+                    <option value="N1">N1 - 高级</option>
+                </select>
+                
+                <!-- 结束等级 -->
+                <label for="endLevelSelector" class="font-medium text-gray-700 ml-4">结束等级 (较难):</label>
+                <select id="endLevelSelector" class="p-2 border border-gray-300 rounded-lg focus:ring-accent-blue focus:border-accent-blue transition duration-150">
+                    <option value="N5">N5 - 初级</option>
+                    <option value="N4">N4 - 初中级</option>
+                    <option value="N3">N3 - 中级</option>
+                    <option value="N2">N2 - 中高级</option>
+                    <option value="N1" selected>N1 - 高级</option>
+                </select>
+            </div>
+
             <button id="fetchButton"
                     class="px-8 py-3 bg-accent-blue text-white font-semibold rounded-xl shadow-lg hover:bg-blue-600 transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-accent-blue/50 disabled:bg-gray-400">
                 ✨ 获取新词汇
             </button>
-            <div id="statusMessage" class="text-sm text-gray-600"></div>
         </div>
+
+        <div id="statusMessage" class="text-center text-sm text-gray-600 mb-4"></div>
 
         <!-- 词汇卡片容器 -->
         <div id="vocabularyContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -61,9 +87,12 @@
     <!-- JavaScript 逻辑 -->
     <script>
         // ⚠️ 必填：请将此处的 URL 替换为您真实的 Vercel 域名！
-        const API_URL = "https://vercel-api-proxy.805064439.workers.dev/api/n1-vocab";
+        const API_URL_BASE = "https://vercel-api-proxy.805064439.workers.dev/api/n1-vocab";
 
         const fetchButton = document.getElementById('fetchButton');
+        // 变量名更新
+        const startLevelSelector = document.getElementById('startLevelSelector');
+        const endLevelSelector = document.getElementById('endLevelSelector');
         const statusMessage = document.getElementById('statusMessage');
         const vocabularyContainer = document.getElementById('vocabularyContainer');
 
@@ -109,6 +138,11 @@
                 </div>
             `;
         }
+        
+        // 辅助函数：提取等级的数字部分
+        function getLevelNumber(levelString) {
+            return parseInt(levelString.substring(1));
+        }
 
         /**
          * 从 Vercel API 获取词汇数据并渲染
@@ -116,13 +150,35 @@
         async function fetchVocabulary() {
             setStatus('', true);
             vocabularyContainer.innerHTML = ''; 
+            
+            const startLevel = startLevelSelector.value;
+            const endLevel = endLevelSelector.value;
+            
+            // 前端验证：确保起始等级的数字大于等于结束等级的数字 (N5 > N1)
+            const startNum = getLevelNumber(startLevel);
+            const endNum = getLevelNumber(endLevel);
+
+            if (startNum < endNum) {
+                const message = `⚠️ 等级选择错误：起始等级 (${startLevel}) 必须低于或等于结束等级 (${endLevel})。请确保选择的范围是从简单到复杂 (例如 N3 到 N1)。`;
+                setStatus(message, false);
+                vocabularyContainer.innerHTML = `<div class="md:col-span-2 text-center text-orange-600 p-12 bg-white rounded-xl shadow-inner">${message}</div>`;
+                return;
+            }
+
+            const fullApiUrl = `${API_URL_BASE}?startLevel=${startLevel}&endLevel=${endLevel}`;
 
             try {
-                setStatus('正在请求 Gemini API...', true);
+                setStatus(`正在请求 ${startLevel} 到 ${endLevel} 范围词汇...`, true);
                 
-                const response = await fetch(API_URL);
+                const response = await fetch(fullApiUrl);
                 if (!response.ok) {
-                    throw new Error(`HTTP 错误！状态码: ${response.status}`);
+                    // 尝试读取服务器返回的错误信息
+                    let errorBody = await response.text();
+                    try {
+                        const jsonError = JSON.parse(errorBody);
+                        errorBody = jsonError.error || errorBody;
+                    } catch {}
+                    throw new Error(`HTTP 错误！状态码: ${response.status}. 详情: ${errorBody}`);
                 }
                 
                 const data = await response.json();
@@ -133,7 +189,7 @@
                      return;
                 }
 
-                setStatus(`成功获取 ${data.n1_vocabulary_list.length} 个词汇。`, false);
+                setStatus(`成功获取 ${data.n1_vocabulary_list.length} 个 ${startLevel}-${endLevel} 范围词汇。`, false);
                 
                 // 渲染卡片
                 let cardsHtml = data.n1_vocabulary_list.map(createCard).join('');
