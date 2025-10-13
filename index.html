@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JLPT 词汇挑战</title>
-    <!-- 加载 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 使用 Inter 字体以获得现代感 */
@@ -30,7 +29,6 @@
 <body class="min-h-screen p-4 sm:p-8">
 
     <div id="app" class="max-w-4xl mx-auto">
-        <!-- 头部区域 -->
         <header class="text-center mb-10">
             <h1 class="text-4xl font-extrabold text-accent-dark mb-2">
                 JLPT 词汇挑战
@@ -40,13 +38,10 @@
             </p>
         </header>
 
-        <!-- 等级选择、按钮和状态区域 -->
         <div class="flex flex-col sm:flex-row items-center justify-center mb-8 space-y-4 sm:space-y-0 sm:space-x-6">
             
-            <!-- 等级选择下拉菜单组 - 调整为 flex-col 在移动端堆叠 -->
             <div class="flex flex-col sm:flex-row sm:space-x-6 bg-white p-4 rounded-xl shadow-md border border-gray-200 justify-center">
                 
-                <!-- 起始等级 (添加 mb-4 用于移动端垂直间距) -->
                 <div class="flex items-center space-x-2 mb-4 sm:mb-0">
                     <label for="startLevelSelector" class="font-medium text-gray-700 whitespace-nowrap">起始等级 (较简单):</label>
                     <select id="startLevelSelector" class="p-2 border border-gray-300 rounded-lg focus:ring-accent-blue focus:border-accent-blue transition duration-150">
@@ -58,7 +53,6 @@
                     </select>
                 </div>
                 
-                <!-- 结束等级 -->
                 <div class="flex items-center space-x-2">
                     <label for="endLevelSelector" class="font-medium text-gray-700 whitespace-nowrap">结束等级 (较难):</label>
                     <select id="endLevelSelector" class="p-2 border border-gray-300 rounded-lg focus:ring-accent-blue focus:border-accent-blue transition duration-150">
@@ -79,22 +73,18 @@
 
         <div id="statusMessage" class="text-center text-sm text-gray-600 mb-4"></div>
 
-        <!-- 词汇卡片容器 -->
         <div id="vocabularyContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- 词汇卡片将在这里动态加载 -->
             <div class="md:col-span-2 text-center text-gray-400 p-12 bg-white rounded-xl shadow-inner">
                 点击 "获取新词汇" 按钮来开始学习吧！
             </div>
         </div>
     </div>
 
-    <!-- JavaScript 逻辑 -->
     <script>
         // ⚠️ 必填：请将此处的 URL 替换为您真实的 Vercel 域名！
         const API_URL_BASE = "https://vercel-api-proxy.805064439.workers.dev/api/n1-vocab";
 
         const fetchButton = document.getElementById('fetchButton');
-        // 变量名更新
         const startLevelSelector = document.getElementById('startLevelSelector');
         const endLevelSelector = document.getElementById('endLevelSelector');
         const statusMessage = document.getElementById('statusMessage');
@@ -111,26 +101,45 @@
             fetchButton.textContent = isLoading ? '🚀 正在生成中...' : '✨ 获取新词汇';
         }
 
+        // 辅助函数：根据 JLPT 等级返回 Tailwind CSS 颜色类
+        function getLevelColorClasses(level) {
+            switch (level.toUpperCase()) {
+                case 'N5': return 'bg-blue-100 text-blue-700';
+                case 'N4': return 'bg-cyan-100 text-cyan-700';
+                case 'N3': return 'bg-green-100 text-green-700';
+                case 'N2': return 'bg-yellow-100 text-yellow-700';
+                case 'N1': return 'bg-red-100 text-red-700';
+                default: return 'bg-gray-100 text-gray-700';
+            }
+        }
+
         /**
          * 创建单个词汇卡片
-         * @param {object} vocab - 包含词汇信息的对象
+         * @param {object} vocab - 包含词汇信息的对象 (假设包含 vocab.jlpt_level 字段)
          * @returns {string} HTML 字符串
          */
         function createCard(vocab) {
+            // 关键修改：从 vocab 对象中获取实际等级
+            // 如果后端返回的字段名是 'level' 或 'grade'，请将 'jlpt_level' 更改为相应的字段名
+            const actualLevel = vocab.jlpt_level || '未知等级'; 
+            const levelClasses = getLevelColorClasses(actualLevel);
+
             return `
                 <div class="bg-white p-6 rounded-xl shadow-xl hover:shadow-2xl transition duration-300 border border-gray-100">
-                    <!-- 词汇主体 -->
                     <div class="flex justify-between items-start mb-3 border-b pb-2 border-dashed">
                         <h3 class="text-3xl font-bold text-accent-dark tracking-wide">${vocab.word}</h3>
-                        <span class="text-lg text-gray-500 font-medium ml-4">${vocab.reading}</span>
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs font-bold px-3 py-1 ${levelClasses} rounded-full shadow-inner whitespace-nowrap">
+                                ${actualLevel}
+                            </span>
+                            <span class="text-lg text-gray-500 font-medium">${vocab.reading}</span>
+                        </div>
                     </div>
 
-                    <!-- 中文翻译 -->
                     <p class="text-lg text-gray-700 font-semibold mb-4">
                         <span class="text-accent-blue mr-2">译:</span> ${vocab.chinese_translation}
                     </p>
 
-                    <!-- 例句 -->
                     <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
                         <p class="text-base italic text-gray-800 mb-2">
                             ${vocab.example_sentence_jp}
@@ -196,7 +205,8 @@
                 setStatus(`成功获取 ${data.n1_vocabulary_list.length} 个 ${startLevel}-${endLevel} 范围词汇。`, false);
                 
                 // 渲染卡片
-                let cardsHtml = data.n1_vocabulary_list.map(createCard).join('');
+                // 关键修改：只传递 vocab 对象，以便 createCard 使用 vocab.jlpt_level
+                let cardsHtml = data.n1_vocabulary_list.map(vocab => createCard(vocab)).join('');
                 vocabularyContainer.innerHTML = cardsHtml;
 
             } catch (error) {
