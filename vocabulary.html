@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JLPT 词汇挑战 (AI 驱动)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <style>
+        /* 使用 Inter 字体以获得现代感 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+            /* 浅灰色背景 */
+        }
+
+        /* 强调部分样式定义：用颜色和下划线代替粗体 */
+        .highlight-word {
+            color: #dc2626;
+            /* Tailwind: text-red-600 */
+            font-weight: 600;
+            /* semi-bold程度 */
+            text-decoration: underline;
+            text-decoration-color: #fca5a5;
+            /* 浅红色下划线 */
+            text-underline-offset: 2px;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'accent-blue': '#3b82f6',
+                        'accent-dark': '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="min-h-screen p-4 sm:p-8">
+
+    <div id="app" class="max-w-4xl mx-auto">
+        
+        <header class="text-center mb-10">
+            <nav class="mb-8">
+                <a href="index.html" 
+                   class="inline-flex items-center 
+                          px-4 py-2 
+                          bg-white text-accent-dark 
+                          font-semibold text-sm 
+                          rounded-full 
+                          shadow-lg hover:shadow-xl hover:bg-gray-50 
+                          border border-gray-200 
+                          transition duration-200">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"></path>
+                    </svg>
+                    返回功能选择首页
+                </a>
+            </nav>
+            
+            <h1 class="text-4xl font-extrabold text-accent-dark mb-2">
+                日文单词挑战 (N5 ~ N1)
+            </h1>
+            <p class="text-lg text-gray-500">
+                选择 JLPT 等级范围，让 AI 生成定制化的词汇列表。
+            </p>
+        </header>
+
+        <div class="flex flex-col sm:flex-row items-center justify-center mb-8 space-y-4 sm:space-y-0 sm:space-x-6">
+
+            <div
+                class="flex flex-col sm:flex-row sm:space-x-6 bg-white p-4 rounded-xl shadow-md border border-gray-200 justify-center">
+
+                <div class="flex items-center space-x-2 mb-4 sm:mb-0">
+                    <label for="startLevelSelector" class="font-medium text-gray-700 whitespace-nowrap">起始等级
+                        (较简单):</label>
+                    <select id="startLevelSelector"
+                        class="p-2 border border-gray-300 rounded-lg focus:ring-accent-blue focus:border-accent-blue transition duration-150">
+                        <option value="N5">N5 - 初级</option>
+                        <option value="N4">N4 - 初中级</option>
+                        <option value="N3" selected>N3 - 中级</option>
+                        <option value="N2">N2 - 中高级</option>
+                        <option value="N1">N1 - 高级</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <label for="endLevelSelector" class="font-medium text-gray-700 whitespace-nowrap">结束等级 (较难):</label>
+                    <select id="endLevelSelector"
+                        class="p-2 border border-gray-300 rounded-lg focus:ring-accent-blue focus:border-accent-blue transition duration-150">
+                        <option value="N5">N5 - 初级</option>
+                        <option value="N4">N4 - 初中级</option>
+                        <option value="N3">N3 - 中级</option>
+                        <option value="N2">N2 - 中高级</option>
+                        <option value="N1" selected>N1 - 高级</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="fetchButton"
+                class="px-8 py-3 bg-accent-blue text-white font-semibold rounded-xl shadow-lg hover:bg-blue-600 transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-accent-blue/50 disabled:bg-gray-400">
+                ✨ 获取新词汇
+            </button>
+        </div>
+
+        <div id="statusMessage" class="text-center text-sm text-gray-600 mb-4"></div>
+
+        <div id="vocabularyContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="md:col-span-2 text-center text-gray-400 p-12 bg-white rounded-xl shadow-inner">
+                点击 "获取新词汇" 按钮来开始学习吧！
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ⚠️ 必填：请将此处的 URL 替换为您真实的 Vercel 域名！
+        const API_URL_BASE = "https://vocab-api-server-on-vercel.vercel.app/api/n1-vocab";
+
+        const fetchButton = document.getElementById('fetchButton');
+        const startLevelSelector = document.getElementById('startLevelSelector');
+        const endLevelSelector = document.getElementById('endLevelSelector');
+        const statusMessage = document.getElementById('statusMessage');
+        const vocabularyContainer = document.getElementById('vocabularyContainer');
+
+        // 设置 Axios 超时时间为 60 秒 (60000 毫秒)
+        const FRONTEND_TIMEOUT_MS = 60000;
+
+        /**
+         * 显示状态信息并启用/禁用按钮
+         * @param {string} message - 要显示的消息
+         * @param {boolean} isLoading - 是否正在加载
+         */
+        function setStatus(message, isLoading) {
+            statusMessage.textContent = message;
+            fetchButton.disabled = isLoading;
+
+            const timeoutSeconds = FRONTEND_TIMEOUT_MS / 1000;
+            fetchButton.textContent = isLoading
+                ? `🚀 正在向AI请求数据 (请耐心等待，最长 ${timeoutSeconds} 秒)...`
+                : '✨ 获取新词汇';
+        }
+
+        // 辅助函数：根据 JLPT 等级返回 Tailwind CSS 颜色类
+        function getLevelColorClasses(level) {
+            switch (level.toUpperCase()) {
+                case 'N5': return 'bg-blue-100 text-blue-700';
+                case 'N4': return 'bg-cyan-100 text-cyan-700';
+                case 'N3': return 'bg-green-100 text-green-700';
+                case 'N2': return 'bg-yellow-100 text-yellow-700';
+                case 'N1': return 'bg-red-100 text-red-700';
+                default: return 'bg-gray-100 text-gray-700';
+            }
+        }
+
+        /**
+         * 例句格式化：将双星号（**...**）替换为高亮显示用的 span 标签。
+         * 此函数适用于日语和中文例句。
+         * @param {string} sentence - 原始例句字符串
+         * @returns {string} - 替换后的 HTML 字符串
+         */
+        function formatExampleSentence(sentence) {
+            // 使用正则表达式 /g 替换所有匹配的 **...**，并用 span 标签包裹捕获组 ($1)
+            return sentence.replace(/\*\*(.*?)\*\*/g, '<span class="highlight-word">$1</span>');
+        }
+
+        /**
+         * 创建单个词汇卡片
+         * @param {object} vocab - 词汇数据对象
+         */
+        function createCard(vocab) {
+            const actualLevel = vocab.jlpt_level || '未知等级';
+            const levelClasses = getLevelColorClasses(actualLevel);
+
+            // 关键修改：分别对日语例句和中文例句进行格式化
+            const formattedSentenceJp = formatExampleSentence(vocab.example_sentence_jp);
+            const formattedSentenceCn = formatExampleSentence(vocab.example_sentence_cn);
+
+            return `
+                <div class="bg-white p-6 rounded-xl shadow-xl hover:shadow-2xl transition duration-300 border border-gray-100">
+                    <div class="flex justify-between items-start mb-3 border-b pb-2 border-dashed">
+                        <h3 class="text-3xl font-bold text-accent-dark tracking-wide">${vocab.word}</h3>
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs font-bold px-3 py-1 ${levelClasses} rounded-full shadow-inner whitespace-nowrap">
+                                ${actualLevel}
+                            </span>
+                            <span class="text-lg text-gray-500 font-medium">${vocab.reading}</span>
+                        </div>
+                    </div>
+
+                    <p class="text-lg text-gray-700 font-semibold mb-4">
+                        <span class="text-accent-blue mr-2">译:</span> ${vocab.chinese_translation}
+                    </p>
+
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <p class="text-base italic text-gray-800 mb-2">
+                            ${formattedSentenceJp}
+                        </p>
+                        <p class="text-sm text-gray-500">
+                            ${formattedSentenceCn}
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 辅助函数：提取等级的数字部分
+        function getLevelNumber(levelString) {
+            return parseInt(levelString.substring(1));
+        }
+
+        /**
+         * 从 Vercel API 获取词汇数据并渲染 (使用 Axios)
+         */
+        async function fetchVocabulary() {
+            setStatus('', true);
+            vocabularyContainer.innerHTML = '';
+
+            const startLevel = startLevelSelector.value;
+            const endLevel = endLevelSelector.value;
+
+            const startNum = getLevelNumber(startLevel);
+            const endNum = getLevelNumber(endLevel);
+
+            if (startNum < endNum) {
+                const message = `⚠️ 等级选择错误：起始等级 (${startLevel}) 必须低于或等于结束等级 (${endLevel})。请确保选择的范围是从简单到复杂 (例如 N3 到 N1)。`;
+                setStatus(message, false);
+                vocabularyContainer.innerHTML = `<div class="md:col-span-2 text-center text-orange-600 p-12 bg-white rounded-xl shadow-inner">${message}</div>`;
+                return;
+            }
+
+            const fullApiUrl = `${API_URL_BASE}?startLevel=${startLevel}&endLevel=${endLevel}`;
+
+            try {
+                setStatus(`正在请求 ${startLevel} 到 ${endLevel} 范围词汇...`, true);
+
+                // 核心：使用 axios.get，并配置 timeout
+                const response = await axios.get(fullApiUrl, {
+                    timeout: FRONTEND_TIMEOUT_MS, // 设置超时时间
+                    // 允许 4xx/5xx 状态码通过，在下面手动处理
+                    validateStatus: (status) => status >= 200 && status < 505
+                });
+
+                const data = response.data;
+
+                if (response.status !== 200) {
+                    throw new Error(`HTTP 错误！状态码: ${response.status}. 详情: ${data.error || '未知错误'}`);
+                }
+
+                if (!data.n1_vocabulary_list || data.n1_vocabulary_list.length === 0) {
+                    vocabularyContainer.innerHTML = `<div class="md:col-span-2 text-center text-red-500 p-12 bg-white rounded-xl shadow-inner">API 返回的数据格式有误或列表为空。</div>`;
+                    setStatus('获取失败', false);
+                    return;
+                }
+
+                setStatus(`成功获取 ${data.n1_vocabulary_list.length} 个词汇。`, false);
+
+                let cardsHtml = data.n1_vocabulary_list.map(vocab => createCard(vocab)).join('');
+                vocabularyContainer.innerHTML = cardsHtml;
+
+            } catch (error) {
+                console.error("Axios Error:", error);
+
+                let displayMessage;
+
+                // 针对 Axios 超时、499 和其他错误进行处理
+                if (axios.isCancel(error) || error.code === 'ECONNABORTED') {
+                    displayMessage = `请求超时！AI 生成数据耗时超过 ${FRONTEND_TIMEOUT_MS / 1000} 秒。请稍后重试。`;
+                } else if (error.message.includes('499')) {
+                    displayMessage = `获取词汇请求中断 (499 常见情况)。请检查网络或稍后重试。`;
+                } else if (error.response) {
+                    // Axios 捕获到的非 2xx 响应
+                    const status = error.response.status;
+                    const errorDetail = error.response.data?.error || error.message;
+                    displayMessage = `服务器错误 (${status})。详情: ${errorDetail}`;
+                } else {
+                    displayMessage = `获取词汇失败。详情: ${error.message}`;
+                }
+
+                setStatus(displayMessage, false);
+                vocabularyContainer.innerHTML = `<div class="md:col-span-2 text-center text-red-500 p-12 bg-white rounded-xl shadow-inner">
+                    错误: ${displayMessage}
+                </div>`;
+            }
+        }
+
+        // 绑定事件监听器
+        fetchButton.addEventListener('click', fetchVocabulary);
+
+        // 页面加载完成后的处理
+        window.onload = () => {
+            setStatus('点击按钮开始。', false);
+        };
+    </script>
+</body>
+
+</html>

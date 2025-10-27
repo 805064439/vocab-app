@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日语表达自然度与语法检查 (AI 驱动)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <style>
+        /* 使用 Inter 字体以获得现代感 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+            /* 浅灰色背景 */
+        }
+
+        /* 核心优化：响应式字体大小 - 针对手机端（默认）的字体调整 */
+        .h1-responsive {
+            font-size: 2.25rem;
+            /* text-3xl 4xl 之间的值 */
+        }
+
+        .text-responsive {
+            font-size: 1rem;
+            /* 基础文本 */
+        }
+
+        .h2-responsive {
+            font-size: 1.25rem;
+            /* text-xl 左右 */
+        }
+
+        /* 在中等屏幕及以上（md:）恢复或使用更大字体 */
+        @media (min-width: 768px) {
+            .h1-responsive {
+                font-size: 3rem;
+                /* md:text-4xl */
+            }
+
+            .text-responsive {
+                font-size: 1.125rem;
+                /* md:text-lg */
+            }
+
+            .h2-responsive {
+                font-size: 1.5rem;
+                /* md:text-2xl */
+            }
+        }
+
+        /* 💥 新增样式：AI 评估结果的容器和文本 (醒目的黄色盒子) */
+        .ai-assessment-box {
+            background-color: #fef3c7;
+            /* bg-amber-100 浅黄色 */
+            border: 2px solid #f59e0b;
+            /* border-amber-500 */
+            color: #78350f;
+            /* text-amber-900 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .ai-assessment-title {
+            font-weight: 700;
+            font-size: 1.25rem;
+            /* text-xl */
+            margin-bottom: 0.5rem;
+        }
+
+        /* 强调 AI 标记出的关键字 */
+        .highlight-md {
+            color: #dc2626;
+            /* text-red-600 */
+            font-weight: 700;
+            /* 加粗 */
+        }
+
+        /* 优化结果内容的排版，提高可读性 */
+        #resultContent {
+            font-size: 1rem;
+            /* 手机端基础字体 */
+            line-height: 1.65;
+            /* 增加行距 */
+            white-space: pre-wrap;
+            /* 保持输入时的空格和换行 */
+        }
+
+        @media (min-width: 768px) {
+            #resultContent {
+                font-size: 1.05rem;
+                /* 桌面端稍微放大 */
+            }
+        }
+
+        /* 优化列表显示 */
+        #resultContent br {
+            margin-bottom: 5px;
+            /* 增加段落间距 */
+            content: "";
+            display: block;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'accent-blue': '#3b82f6',
+                        'accent-dark': '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="min-h-screen p-3 sm:p-6 md:p-8">
+
+    <div id="app" class="max-w-2xl lg:max-w-3xl mx-auto">
+        <header class="text-center mb-8 sm:mb-10">
+            <nav class="mb-6">
+                <a href="index.html" 
+                   class="inline-flex items-center 
+                          px-4 py-2 
+                          bg-white text-accent-dark 
+                          font-semibold text-sm 
+                          rounded-full 
+                          shadow-lg hover:shadow-xl hover:bg-gray-50 
+                          border border-gray-200 
+                          transition duration-200">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"></path>
+                    </svg>
+                    返回功能选择首页
+                </a>
+            </nav>
+
+            <h1 class="h1-responsive font-extrabold text-accent-dark mb-2">
+                🤖 日语表达与语法检查
+            </h1>
+            <p class="text-responsive text-gray-500">
+                输入您的日语句子，让 Gemini AI 给出最地道的修正和详细解释。
+            </p>
+        </header>
+
+        <div id="sentenceChecker" class="p-4 sm:p-6 md:p-8 bg-white rounded-xl shadow-2xl border border-gray-100">
+            <div class="flex flex-col space-y-4">
+                <label for="sentenceInput" class="h2-responsive font-semibold text-gray-700">输入日语句子:</label>
+                <textarea id="sentenceInput"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-accent-blue focus:border-accent-blue transition duration-150 h-32 resize-none text-base"
+                    placeholder="请输入您的日语句子（例如：私は昨日、図書館に本を借りた。）"></textarea>
+
+                <button id="checkSentenceButton"
+                    class="w-full px-6 py-3 bg-accent-blue text-white font-semibold rounded-xl shadow-lg hover:bg-blue-600 transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-accent-blue/50 disabled:bg-gray-400">
+                    📝 检查并修正句子
+                </button>
+            </div>
+
+            <div id="checkStatusMessage" class="text-center text-sm text-gray-600 mt-3"></div>
+
+            <div id="checkResultContainer"
+                class="mt-6 p-4 sm:p-5 bg-gray-50 rounded-lg border border-gray-200 hidden min-h-32">
+                <h3 class="text-xl font-bold text-gray-800 mb-3 pb-1 border-b border-gray-300">AI 检查结果</h3>
+                <div id="resultContent" class="text-gray-800 leading-relaxed"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ⚠️ 必填：请将此处的 URL 替换为您真实的 Vercel 域名！
+        const API_URL_BASE = "https://vocab-api-server-on-vercel.vercel.app";
+        const API_URL_CHECK_SENTENCE = `${API_URL_BASE}/api/check-sentence`;
+        const FRONTEND_TIMEOUT_MS = 60000; // 60 秒超时
+
+        const sentenceInput = document.getElementById('sentenceInput');
+        const checkSentenceButton = document.getElementById('checkSentenceButton');
+        const checkResultContainer = document.getElementById('checkResultContainer');
+        const checkStatusMessage = document.getElementById('checkStatusMessage');
+        const resultContent = document.getElementById('resultContent');
+
+
+        /**
+         * 💥 新的解析函数：解析 AI 返回的文本，分离出 AI 评估部分并构造 HTML
+         * @param {string} text - 原始文本 (包含 \n 和 Markdown)
+         * @returns {string} - 包含特殊评估盒子的 HTML 字符串
+         */
+        function formatAndStructureResult(text) {
+            // 1. 将所有 \n 替换为 <br>，方便正则匹配和显示
+            const htmlText = text.replace(/\n/g, '<br>');
+
+            let assessmentHtml = '';
+            let mainContent = htmlText;
+
+            // 2. 使用正则表达式查找 【AI 評価】 和 【修正と説明】 之间的内容
+            // 匹配格式： **【AI 評価】** <br> (评估内容) (?= **【修正と説明】**)
+            const assessmentMatch = htmlText.match(/\*\*【AI 評価】\*\*\s*<br>(.*?)(?=\*\*【修正と説明】\*\*)/s);
+
+            if (assessmentMatch && assessmentMatch[1]) {
+                // 提取评估文本 (已经包含了 <br>)
+                const assessmentText = assessmentMatch[1].trim();
+
+                // 构建评估盒子 HTML
+                assessmentHtml = `
+                    <div class="ai-assessment-box">
+                        <div class="ai-assessment-title">💡 AI 综合评估</div>
+                        <div>${assessmentText}</div>
+                    </div>
+                `;
+
+                // 移除评估部分，保留其余内容作为主内容
+                // 我们将 【AI 評価】 和其内容移除，留下 【原始句子】 和 【修正と説明】 部分
+                mainContent = htmlText.replace(assessmentMatch[0], `<br><br>**【修正と説明】**`);
+            }
+
+            // 3. 处理剩余内容：替换 **粗体**
+            // 将 **粗体** 替换为 <strong class="highlight-md">
+            let finalHtml = mainContent.replace(/\*\*(.*?)\*\*/g, '<strong class="highlight-md">$1</strong>');
+
+            // 4. 重新组合：将评估盒子放在最前面
+            return assessmentHtml + finalHtml;
+        }
+
+
+        /**
+         * 处理句子检查状态
+         */
+        function setCheckStatus(message, isLoading) {
+            checkStatusMessage.textContent = message;
+            checkSentenceButton.disabled = isLoading;
+            checkSentenceButton.textContent = isLoading
+                ? '🤖 正在努力检查中...'
+                : '📝 检查并修正句子';
+        }
+
+        /**
+         * 调用 /api/check-sentence API
+         */
+        async function checkSentence() {
+            const sentence = sentenceInput.value.trim();
+
+            if (sentence.length === 0) {
+                setCheckStatus('请输入您想要检查的日语句子！', false);
+                return;
+            }
+
+            // 检查句子长度限制 (与后端保持一致)
+            const maxLen = 300;
+            if (sentence.length > maxLen) {
+                setCheckStatus(`句子太长！请限制在 ${maxLen} 个字符以内。`, false);
+                return;
+            }
+
+            setCheckStatus('正在向 AI 请求检查...', true);
+            resultContent.innerHTML = '';
+            checkResultContainer.classList.add('hidden');
+
+            try {
+                // 使用 POST 请求发送句子
+                const response = await axios.post(API_URL_CHECK_SENTENCE, {
+                    sentence: sentence
+                }, {
+                    timeout: FRONTEND_TIMEOUT_MS,
+                    validateStatus: (status) => status >= 200 && status < 505
+                });
+
+                const data = response.data;
+
+                if (response.status !== 200 || !data.result) {
+                    const errorDetail = data.error || '未收到有效结果';
+                    throw new Error(`HTTP 错误！状态码: ${response.status}. 详情: ${errorDetail}`);
+                }
+
+                setCheckStatus('✅ 检查完成！', false);
+
+                // 💥 关键：调用新的结构化格式化函数处理 AI 返回的文本
+                const formattedResult = formatAndStructureResult(data.result);
+
+                resultContent.innerHTML = formattedResult;
+                checkResultContainer.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Sentence Check Error:", error);
+
+                let displayMessage;
+                if (axios.isCancel(error) || error.code === 'ECONNABORTED') {
+                    displayMessage = `请求超时！AI 检查耗时过长。请稍后重试。`;
+                } else if (error.response) {
+                    const status = error.response.status;
+                    const errorDetail = error.response.data?.error || error.message;
+                    displayMessage = `服务器错误 (${status})。详情: ${errorDetail}`;
+                } else {
+                    displayMessage = `句子检查失败。详情: ${error.message}`;
+                }
+
+                setCheckStatus(`❌ 检查失败: ${displayMessage}`, false);
+                checkResultContainer.classList.add('hidden');
+            }
+        }
+
+
+        // 绑定事件监听器
+        checkSentenceButton.addEventListener('click', checkSentence);
+
+        // 页面加载完成后的处理
+        window.onload = () => {
+            setCheckStatus('输入句子并点击按钮开始检查。', false);
+        };
+    </script>
+</body>
+
+</html>
