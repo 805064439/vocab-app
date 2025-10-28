@@ -14,14 +14,6 @@
             background-color: #f7f9fb; /* 浅灰色背景 */
         }
         
-        /* 自定义强调色 */
-        .color-primary {
-            background-color: #3b82f6; /* 蓝 */
-        }
-        .color-secondary {
-            background-color: #10b981; /* 绿 */
-        }
-        
         /* 响应式标题调整 */
         .h1-responsive {
             font-size: 2.5rem; 
@@ -40,6 +32,7 @@
                         'accent-blue': '#3b82f6',
                         'accent-green': '#10b981',
                         'accent-dark': '#1e293b',
+                        'accent-red': '#ef4444', // 新增的强调色，用于新闻卡片
                     }
                 }
             }
@@ -48,7 +41,8 @@
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 
-    <div class="max-w-2xl w-full mx-auto text-center">
+    <!-- 扩大主容器的最大宽度，以容纳三个卡片 -->
+    <div class="max-w-4xl w-full mx-auto text-center">
         <header class="mb-12">
             <h1 class="h1-responsive font-extrabold text-accent-dark mb-4 leading-tight">
                 欢迎使用 AI 日语学习工具箱 🇯🇵
@@ -58,8 +52,10 @@
             </p>
         </header>
 
-        <main class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- 调整 Grid 布局以适应三个卡片：小屏幕单列，中屏双列，大屏幕三列 -->
+        <main class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
+            <!-- 1. 词汇挑战生成 (蓝色) -->
             <a href="vocabulary.html" class="block">
                 <div class="p-8 bg-white rounded-xl shadow-lg border-t-4 border-accent-blue hover:shadow-xl transition duration-300 transform hover:-translate-y-1 h-full flex flex-col justify-between">
                     <div>
@@ -69,12 +65,14 @@
                             根据 JLPT 等级生成定制化的单词列表，强化词汇和语法记忆。
                         </p>
                     </div>
-                    <button class="w-full py-3 mt-4 color-primary text-white font-semibold rounded-lg hover:opacity-90 transition">
+                    <!-- 使用 Tailwind 颜色类替代 color-primary -->
+                    <button class="w-full py-3 mt-4 bg-accent-blue text-white font-semibold rounded-lg hover:opacity-90 transition">
                         开始词汇学习 →
                     </button>
                 </div>
             </a>
 
+            <!-- 2. 日语句子检查 (绿色) -->
             <a href="check.html" class="block">
                 <div class="p-8 bg-white rounded-xl shadow-lg border-t-4 border-accent-green hover:shadow-xl transition duration-300 transform hover:-translate-y-1 h-full flex flex-col justify-between">
                     <div>
@@ -84,11 +82,29 @@
                             输入您的日语句子，AI 给出最地道的修正和详细的语法/表达解释。
                         </p>
                     </div>
-                    <button class="w-full py-3 mt-4 color-secondary text-white font-semibold rounded-lg hover:opacity-90 transition">
+                    <!-- 使用 Tailwind 颜色类替代 color-secondary -->
+                    <button class="w-full py-3 mt-4 bg-accent-green text-white font-semibold rounded-lg hover:opacity-90 transition">
                         进行句子检查 →
                     </button>
                 </div>
             </a>
+            
+            <!-- 3. AI 日语新闻精选 (红色/新增) -->
+            <a href="news.html" class="block">
+                <div class="p-8 bg-white rounded-xl shadow-lg border-t-4 border-accent-red hover:shadow-xl transition duration-300 transform hover:-translate-y-1 h-full flex flex-col justify-between">
+                    <div>
+                        <div class="text-4xl mb-4">📰</div>
+                        <h2 class="text-2xl font-bold text-accent-dark mb-2">AI 日语新闻精选</h2>
+                        <p class="text-gray-600 mb-4">
+                            每日更新、分级阅读的地道日语新闻，是拓展阅读面、了解时事的最佳途径。
+                        </p>
+                    </div>
+                    <button class="w-full py-3 mt-4 bg-accent-red text-white font-semibold rounded-lg hover:opacity-90 transition">
+                        开始新闻阅读 →
+                    </button>
+                </div>
+            </a>
+
 
         </main>
 

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 日语新闻 - 每日精选</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <style>
+        /* 继承 Inter 字体和背景样式 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+            /* 浅灰色背景 */
+        }
+
+        /* 新闻文章的日文部分，使用更易读的字体大小和行高 */
+        .japanese-article {
+            font-size: 1.0rem; /* 针对移动设备优化，从 1.1rem 减小 */
+            line-height: 1.8;
+            color: #1e293b;
+            /* accent-dark */
+        }
+
+        /* 突出显示的关键词样式，沿用词汇页面的红色系强调色 */
+        .keyword-tag {
+            background-color: #fef2f2;
+            /* red-50 */
+            color: #b91c1c;
+            /* red-700 */
+        }
+    </style>
+    <script>
+        // 继承自定义颜色配置
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'accent-blue': '#3b82f6',
+                        'accent-dark': '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="min-h-screen px-2 py-4 sm:p-8">
+
+    <div id="app" class="max-w-4xl mx-auto">
+
+        <header class="text-center mb-10">
+            <nav class="mb-8">
+                <!-- 导航按钮样式保持一致 -->
+                <a href="index.html"
+                    class="inline-flex items-center 
+                            px-4 py-2 
+                            bg-white text-accent-dark 
+                            font-semibold text-sm 
+                            rounded-full 
+                            shadow-lg hover:shadow-xl hover:bg-gray-50 
+                            border border-gray-200 
+                            transition duration-200">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6">
+                        </path>
+                    </svg>
+                    返回功能选择首页
+                </a>
+            </nav>
+
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-accent-dark mb-2">
+                📰 AI 日语新闻精选
+            </h1>
+            <p class="text-lg text-gray-500">
+                选择类别，让 AI 生成一篇专业的地道日文报道。
+            </p>
+        </header>
+
+        <!-- 主题选择和生成按钮区域 -->
+        <div class="flex flex-col sm:flex-row items-center justify-center mb-8 space-y-4 sm:space-y-0 sm:space-x-6">
+            
+            <!-- 使用下拉选择框代替文本输入框 -->
+            <div
+                class="flex flex-grow bg-white p-4 rounded-xl shadow-md border border-gray-200 max-w-lg">
+                <select
+                    id="categorySelect"
+                    class="flex-grow p-2 border-none focus:ring-0 focus:outline-none text-gray-700 bg-white"
+                >
+                    <option value="" disabled selected>--- 请选择新闻类别 ---</option>
+                    <option value="科学技術">科学技術 (Science & Tech)</option>
+                    <option value="経済動向">経済動向 (Economy)</option>
+                    <option value="政治ニュース">政治ニュース (Politics)</option>
+                    <option value="スポーツ">スポーツ (Sports)</option>
+                    <option value="エンタメ">エンタメ (Entertainment)</option>
+                    <option value="環境問題">環境問題 (Environment)</option>
+                    <option value="社会ニュース">社会ニュース (Society)</option>
+                </select>
+            </div>
+
+            <button id="generateNewsButton"
+                class="px-8 py-3 bg-accent-blue text-white font-semibold rounded-xl shadow-lg hover:bg-blue-600 transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-accent-blue/50 disabled:bg-gray-400">
+                🚀 生成当日新闻
+            </button>
+        </div>
+
+        <div id="statusMessage" class="text-center text-sm text-gray-600 mb-6"></div>
+
+        <!-- 新闻展示容器 -->
+        <div id="newsContainer" class="max-w-3xl mx-auto">
+            <div class="text-center text-gray-400 p-12 bg-white rounded-xl shadow-inner">
+                请选择一个类别并点击 "生成当日新闻" 按钮。
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API URL 已配置为您提供的实际后端地址。
+        const API_URL_NEWS = "https://vocab-api-server-on-vercel.vercel.app/api/japanese-news"; 
+
+        const generateNewsButton = document.getElementById('generateNewsButton');
+        // 替换为下拉选择框的ID
+        const categorySelect = document.getElementById('categorySelect');
+        const statusMessage = document.getElementById('statusMessage');
+        const newsContainer = document.getElementById('newsContainer');
+
+        const FRONTEND_TIMEOUT_MS = 60000;
+
+        /**
+         * 显示状态信息并启用/禁用按钮
+         */
+        function setStatus(message, isLoading) {
+            statusMessage.textContent = message;
+            generateNewsButton.disabled = isLoading;
+
+            const timeoutSeconds = FRONTEND_TIMEOUT_MS / 1000;
+            generateNewsButton.textContent = isLoading
+                ? `🚀 正在向AI请求数据 (请耐心等待，最长 ${timeoutSeconds} 秒)...`
+                : '🚀 生成当日新闻';
+        }
+
+        /**
+         * 创建新闻文章卡片
+         * @param {object} newsData - 新闻数据对象
+         */
+        function createNewsCard(newsData) {
+            const keywordsHtml = newsData.keywords.map(keyword =>
+                `<span class="keyword-tag inline-block px-3 py-1 text-xs font-semibold rounded-full mr-2 mb-2">#${keyword}</span>`
+            ).join('');
+
+            // 使用与词汇卡片相同的“白色大卡片 + 阴影/圆角”风格
+            return `
+                <div class="bg-white p-4 sm:p-8 rounded-xl shadow-2xl transition duration-300 border border-gray-100">
+                    <h2 class="text-3xl sm:text-4xl font-extrabold text-accent-dark mb-2">
+                        ${newsData.title}
+                    </h2>
+                    
+                    <p class="text-sm text-gray-500 mb-6 border-b pb-4 border-dashed">
+                        来源建议: ${newsData.suggested_source || 'AI生成'} | 
+                        <span class="font-medium text-red-600">最新生成</span>
+                    </p>
+
+                    <!-- 日文文章主体 -->
+                    <div class="bg-gray-50 p-4 sm:p-6 rounded-lg border border-gray-200 mb-6">
+                        <p class="japanese-article whitespace-pre-wrap">${newsData.article_jp}</p>
+                    </div>
+
+                    <!-- 中文摘要和关键词 -->
+                    <div class="mb-4">
+                        <h3 class="text-lg font-bold text-accent-blue mb-2">中文摘要 (Summary)</h3>
+                        <p class="text-gray-700">${newsData.article_cn_summary}</p>
+                    </div>
+
+                    <div class="mt-6 border-t pt-4">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-2">关键词:</h3>
+                        <div>${keywordsHtml}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+
+        /**
+         * 从 API 获取新闻文章并渲染
+         */
+        async function fetchJapaneseNews() {
+            // 从下拉框获取选定的主题
+            const topic = categorySelect.value.trim();
+            if (!topic) {
+                setStatus('请先选择一个新闻类别！', false);
+                newsContainer.innerHTML = `<div class="text-center text-orange-600 p-12 bg-white rounded-xl shadow-inner">请先选择一个新闻类别。</div>`;
+                return;
+            }
+
+            setStatus('', true);
+            newsContainer.innerHTML = '';
+
+            const fullApiUrl = `${API_URL_NEWS}?topic=${encodeURIComponent(topic)}`;
+
+            try {
+                setStatus(`正在请求 AI 撰写关于 "${topic}" 的新闻...`, true);
+
+                const response = await axios.get(fullApiUrl, {
+                    timeout: FRONTEND_TIMEOUT_MS,
+                    validateStatus: (status) => status >= 200 && status < 505
+                });
+
+                const data = response.data;
+
+                if (response.status !== 200 || !data.article_jp) {
+                    throw new Error(`API 错误！状态码: ${response.status}. 详情: ${data.error || '未返回有效文章'}`);
+                }
+
+                setStatus('新闻文章生成成功！', false);
+                newsContainer.innerHTML = createNewsCard(data);
+
+            } catch (error) {
+                console.error("Axios Error:", error);
+
+                let displayMessage;
+                if (axios.isCancel(error) || error.code === 'ECONNABORTED') {
+                    displayMessage = `请求超时！AI 生成数据耗时超过 ${FRONTEND_TIMEOUT_MS / 1000} 秒。请稍后重试。`;
+                } else if (error.response) {
+                    const status = error.response.status;
+                    const errorDetail = error.response.data?.error || error.message;
+                    displayMessage = `服务器错误 (${status})。详情: ${errorDetail}`;
+                } else {
+                    displayMessage = `获取新闻失败。详情: ${error.message}`;
+                }
+
+                setStatus(displayMessage, false);
+                newsContainer.innerHTML = `<div class="text-center text-red-500 p-12 bg-white rounded-xl shadow-inner">
+                    错误: ${displayMessage}
+                </div>`;
+            }
+        }
+
+        // 绑定事件监听器
+        generateNewsButton.addEventListener('click', fetchJapaneseNews);
+
+        // 页面加载完成后的处理
+        window.onload = () => {
+            setStatus('点击按钮开始。', false);
+        };
+    </script>
+</body>
+
+</html>
